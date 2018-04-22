@@ -41,14 +41,14 @@ public final class DocumentRanking {
     String outputTextFileName = "outfile/output.txt";
 
     // Develop
-    String jsonPath = "credentials/Yelp-Spam-Detection-fa1ca54489b4.json";
-    Storage storage = StorageOptions.newBuilder()
-        .setCredentials(ServiceAccountCredentials.fromStream(new FileInputStream(jsonPath)))
-        .build()
-        .getService();
+    // String jsonPath = "credentials/Yelp-Spam-Detection-fa1ca54489b4.json";
+    // Storage storage = StorageOptions.newBuilder()
+    //     .setCredentials(ServiceAccountCredentials.fromStream(new FileInputStream(jsonPath)))
+    //     .build()
+    //     .getService();
 
     // Production
-    // Storage storage = StorageOptions.getDefaultInstance().getService();
+    Storage storage = StorageOptions.getDefaultInstance().getService();
 
     Bucket bucket = storage.get(storageBucketName);
     int filesCount = 0;

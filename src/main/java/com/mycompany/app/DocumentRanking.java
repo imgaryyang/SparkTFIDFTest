@@ -25,10 +25,10 @@ public final class DocumentRanking {
   public static void main(String[] args) throws Exception {
 
     String appName = "document-ranking";
-    String stopwordsFileName = "AssignmentData/stopwords.txt";
-    String inputFilePath = "AssignmentData/datafiles";
-    String queryFileName = "AssignmentData/query.txt";
-    String outputTextFileName = "outfile/output.txt";
+    String stopwordsFileName = "gs://dataproc-001a516e-ba12-4acc-9e84-4b5edaa06d23-na-northeast1/AssignmentData/stopwords.txt";
+    String inputFilePath = "gs://dataproc-001a516e-ba12-4acc-9e84-4b5edaa06d23-na-northeast1/AssignmentData/datafiles";
+    String queryFileName = "gs://dataproc-001a516e-ba12-4acc-9e84-4b5edaa06d23-na-northeast1/AssignmentData/query.txt";
+    String outputTextFileName = "gs://dataproc-001a516e-ba12-4acc-9e84-4b5edaa06d23-na-northeast1/outfile/output.txt";
     Boolean isSortAscending = false;
     int k = 3;
     final int inputFilesCount = new File(inputFilePath).list().length;
@@ -43,7 +43,7 @@ public final class DocumentRanking {
 	    e.printStackTrace();
     }
     final List<String> stopwords = stopwordsList;
-    
+
     //read in the query
     List<String> queryList = new ArrayList<>();
     try (Stream<String> stream = Files.lines(Paths.get(queryFileName))) {
@@ -56,7 +56,7 @@ public final class DocumentRanking {
     final List<String> query = queryList;
 
     //create Spark context with Spark configuration
-    JavaSparkContext sc = new JavaSparkContext(new SparkConf().setAppName(appName)); 
+    JavaSparkContext sc = new JavaSparkContext(new SparkConf().setAppName(appName));
 
     //set the input file
     JavaPairRDD<String, String> textFiles = sc.wholeTextFiles(inputFilePath);
@@ -78,8 +78,8 @@ public final class DocumentRanking {
 			                .map(w -> s._1()
 				                       .substring(s._1()
 				                   		           .lastIndexOf("/") + 1)
-				                       .split("\\.")[0] + 
-				                       "@" + 
+				                       .split("\\.")[0] +
+				                       "@" +
 				                       w)
 			                .iterator())
 	    //count how many words are in each file
@@ -93,8 +93,8 @@ public final class DocumentRanking {
 						                      .split("@")[0] +
 					                          "=" +
 						                      input._2()));
-	
-	//calculate tf-idf per file process	
+
+	//calculate tf-idf per file process
     JavaPairRDD<String, String> tfIdf = wordCountPerDoc
         //calculate documents per word
         .mapValues(val -> 1)
@@ -120,7 +120,7 @@ public final class DocumentRanking {
                                               .split("@")[0] +
                                               "=" +
                                               input._2()));
-                   
+
     //calculate normalized tf-idf process
     JavaPairRDD<String, Double> normTfIdf = tfIdf
         //calculate the sum of square of TF-IDF for all words in the document
@@ -139,7 +139,7 @@ public final class DocumentRanking {
                       String normTfIdfKey = word + "@" + docName;
                       return new Tuple2<>(normTfIdfKey, normTfIdfVal);
                   });
-                  
+
     //calculate the document relevance from query process
     JavaPairRDD<String, Double> relevance = normTfIdf
         //map to key to the document name and value to be the norm tf-idf
@@ -155,17 +155,17 @@ public final class DocumentRanking {
         .mapValues(val -> Double.parseDouble(val.substring(val.lastIndexOf("=") + 1)))
         //sum up the norm tf-idf for each document
         .reduceByKey((a, b) -> a + b);
-        
-    //sort the output in descending order and select the top k results  
+
+    //sort the output in descending order and select the top k results
     List<Tuple2<String, Double>> sortedList = relevance
         .takeOrdered(k, new TFIDFComparatorDesc());
-	
+
     //set the output folder
     JavaPairRDD<String, Double> sorted = sc.parallelizePairs(sortedList);
     sorted.saveAsTextFile(outputTextFileName);
     //stop spark
   }
-  
+
   static class TFIDFComparatorDesc implements Comparator<Tuple2<String, Double>>, Serializable {
       @Override
       public int compare(Tuple2<String, Double> t1, Tuple2<String, Double> t2) {

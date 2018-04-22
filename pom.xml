@@ -59,6 +59,34 @@
 	    </testResources>
 	    <plugins>
 			<plugin>
+			  <groupId>org.apache.maven.plugins</groupId>
+			  <artifactId>maven-shade-plugin</artifactId>
+			  <version>3.1.1</version>
+			  <executions>
+			    <execution>
+			      <phase>package</phase>
+			      <goals>
+			        <goal>shade</goal>
+			      </goals>
+			      <configuration>
+			      <artifactSet>
+			          <includes>
+			            <include>com.google.guava:*</include>
+			          </includes>
+			      </artifactSet>
+			      <minimizeJar>false</minimizeJar>
+			      <relocations>
+			          <relocation>
+			            <pattern>com.google.common</pattern>
+			            <shadedPattern>repackaged.com.google.common</shadedPattern>
+			          </relocation>
+			      </relocations>
+			      <shadedArtifactAttached>true</shadedArtifactAttached>
+			      </configuration>
+			  </execution>
+			</executions>
+			</plugin>
+			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 			  	<artifactId>maven-assembly-plugin</artifactId>
 				<version>3.1.0</version>

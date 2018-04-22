@@ -7,6 +7,7 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.SparkConf;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.file.Files;
@@ -20,18 +21,47 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.google.auth.oauth2.ServiceAccountCredentials;
+import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.StorageOptions;
+import com.google.cloud.storage.Bucket;
+import com.google.cloud.storage.BucketInfo;
+import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.BlobInfo;
+
 public final class DocumentRanking {
 
   public static void main(String[] args) throws Exception {
 
+    String storageBucketName = "dataproc-001a516e-ba12-4acc-9e84-4b5edaa06d23-na-northeast1";
+    String stopwordsFileName = "gs://" + storageBucketName + "/" + "AssignmentData/stopwords.txt";
+    String inputFilePath = "AssignmentData/datafiles";
+    String inputFilePathGS = "gs://" + storageBucketName + "/" + "AssignmentData/datafiles";
+    String queryFileName = "gs://" + storageBucketName + "/" + "AssignmentData/query.txt";
+    String outputTextFileName = "outfile/output.txt";
+
+    // Develop
+    String jsonPath = "credentials/Yelp-Spam-Detection-fa1ca54489b4.json";
+    Storage storage = StorageOptions.newBuilder()
+        .setCredentials(ServiceAccountCredentials.fromStream(new FileInputStream(jsonPath)))
+        .build()
+        .getService();
+
+    // Production
+    // Storage storage = StorageOptions.getDefaultInstance().getService();
+
+    Bucket bucket = storage.get(storageBucketName);
+    int filesCount = 0;
+    for (Blob blob : bucket.list().iterateAll()) {
+        if (blob.getName().contains(inputFilePath)) {
+            filesCount++;
+        }
+    }
+    final int inputFilesCount = filesCount;
+
     String appName = "document-ranking";
-    String stopwordsFileName = "gs://dataproc-001a516e-ba12-4acc-9e84-4b5edaa06d23-na-northeast1/AssignmentData/stopwords.txt";
-    String inputFilePath = "gs://dataproc-001a516e-ba12-4acc-9e84-4b5edaa06d23-na-northeast1/AssignmentData/datafiles";
-    String queryFileName = "gs://dataproc-001a516e-ba12-4acc-9e84-4b5edaa06d23-na-northeast1/AssignmentData/query.txt";
-    String outputTextFileName = "gs://dataproc-001a516e-ba12-4acc-9e84-4b5edaa06d23-na-northeast1/outfile/output.txt";
     Boolean isSortAscending = false;
-    int k = 3;
-    final int inputFilesCount = new File(inputFilePath).list().length;
+    int topKResults = 3;
 
     //read in the stopwords
     List<String> stopwordsList = new ArrayList<>();
@@ -59,7 +89,7 @@ public final class DocumentRanking {
     JavaSparkContext sc = new JavaSparkContext(new SparkConf().setAppName(appName));
 
     //set the input file
-    JavaPairRDD<String, String> textFiles = sc.wholeTextFiles(inputFilePath);
+    JavaPairRDD<String, String> textFiles = sc.wholeTextFiles(inputFilePathGS);
 
     //word count inside each doc process
     JavaPairRDD<String, String> wordCountPerDoc = textFiles
@@ -158,7 +188,7 @@ public final class DocumentRanking {
 
     //sort the output in descending order and select the top k results
     List<Tuple2<String, Double>> sortedList = relevance
-        .takeOrdered(k, new TFIDFComparatorDesc());
+        .takeOrdered(topKResults, new TFIDFComparatorDesc());
 
     //set the output folder
     JavaPairRDD<String, Double> sorted = sc.parallelizePairs(sortedList);
